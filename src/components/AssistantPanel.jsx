@@ -60,11 +60,58 @@ export default function AssistantPanel({ t, lang }) {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const chatBottomRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  const toggleVoiceInput = () => {
+    const SpeechRecognition = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!SpeechRecognition) {
+      alert('Voice dictation is supported in modern Chrome, Edge, and Safari browsers.');
+      return;
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = false;
+      recognition.lang = lang === 'hi' ? 'hi-IN' : lang === 'es' ? 'es-ES' : 'en-US';
+
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setInput(transcript);
+        }
+      };
+
+      recognition.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch {
+      setIsListening(false);
+    }
+  };
 
   const clearChat = () => {
     setMessages([
@@ -126,9 +173,23 @@ Always reply in the same language as the user's message.`
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder={t.chatPlaceholder || 'Ask: shortest queue, fastest exit, medical station...'}
+          placeholder={isListening ? 'Listening... Speak now' : (t.chatPlaceholder || 'Ask: shortest queue, fastest exit, medical station...')}
           aria-label="Assistant question input"
         />
+        <button
+          type="button"
+          className={`btn-mic ${isListening ? 'listening' : ''}`}
+          onClick={toggleVoiceInput}
+          title={isListening ? 'Stop listening' : 'Voice Query (Dictate question)'}
+          aria-label="Voice input dictation"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
         <button onClick={() => sendMessage()} disabled={loading} aria-label="Send message to assistant">
           {t.send || 'Send'}
         </button>
