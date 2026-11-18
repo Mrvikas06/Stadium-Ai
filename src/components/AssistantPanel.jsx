@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { askGemini } from '../lib/gemini';
 
-const quickPrompts = [
-  'Shortest food queue right now?',
-  'Which gate has least crowd to exit?',
-  'Where is first aid station?',
-  'Best low-crowd route to North Stand?'
+const CATEGORIZED_PROMPTS = [
+  { label: 'Shortest food queue?', prompt: 'Shortest food queue right now?', cat: 'food' },
+  { label: 'Least crowded exit?', prompt: 'Which gate has least crowd to exit?', cat: 'exit' },
+  { label: 'First aid location?', prompt: 'Where is the first aid station?', cat: 'safety' },
+  { label: 'Route to North Stand?', prompt: 'Best low-crowd route to North Stand?', cat: 'route' },
+  { label: 'Accessible elevator?', prompt: 'Where are the wheelchair accessible elevators?', cat: 'access' },
+  { label: 'Restroom with no line?', prompt: 'Which restroom has the shortest wait time right now?', cat: 'amenity' }
 ];
 
 export function detectInputLanguage(text, fallback = 'en') {
@@ -23,7 +25,6 @@ export function detectInputLanguage(text, fallback = 'en') {
 
   // Bengali/Assamese script share block
   if (/[\u0980-\u09FF]/.test(value)) {
-    // Unique Assamese characters ৰ (\u09F0), ৱ (\u09F1) or distinct vocabulary
     if (/[\u09F0\u09F1]/.test(value) || /(মই|কেনেকৈ|কেনেদৰে|ভিৰ)/i.test(value)) return 'as';
     return 'bn';
   }
@@ -34,7 +35,7 @@ export function detectInputLanguage(text, fallback = 'en') {
     return 'hi';
   }
 
-  // Romanized hints (quick heuristic)
+  // Romanized hints
   if (/\b(kaise|kya|bheed|rasta|madad|stadium)\b/i.test(value)) return 'hi';
   if (/\b(kothay|dhonnobad|gate|line|berono)\b/i.test(value)) return 'bn';
   if (/\b(vanakkam|enga|vazhi|udhavi)\b/i.test(value)) return 'ta';
@@ -52,7 +53,10 @@ export function detectInputLanguage(text, fallback = 'en') {
 
 export default function AssistantPanel({ t, lang }) {
   const [messages, setMessages] = useState([
-    { role: 'bot', text: 'Welcome. I can help with directions, queue times, exits, accessibility and safety.' }
+    {
+      role: 'bot',
+      text: 'Welcome to StadiumAI Command Assistant. I provide real-time crowd guidance, fastest exit routing, concession wait times, and accessibility support.'
+    }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,6 +65,15 @@ export default function AssistantPanel({ t, lang }) {
   useEffect(() => {
     chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  const clearChat = () => {
+    setMessages([
+      {
+        role: 'bot',
+        text: 'Conversation reset. How can I assist you with stadium directions or operations?'
+      }
+    ]);
+  };
 
   const sendMessage = async (prompt) => {
     const text = (prompt ?? input).trim();
@@ -75,11 +88,10 @@ export default function AssistantPanel({ t, lang }) {
       const reply = await askGemini({
         userPrompt: text,
         languageCode: detectedLang,
-        systemPrompt: `You are StadiumAI assistant.
-Give concise and practical recommendations for crowd movement in a cricket stadium.
+        systemPrompt: `You are StadiumAI assistant for a world-class stadium.
+Give concise and practical recommendations for crowd movement.
 Prioritize safety, fast routes, and low-queue options.
-Keep every reply short (max 2-4 lines) unless the user explicitly asks for details.
-Use simple language and direct action points.
+Keep reply direct and helpful (2-4 lines).
 Always reply in the same language as the user's message.`
       });
       setMessages((prev) => [...prev, { role: 'bot', text: reply || 'No response received. Please try again.' }]);
@@ -91,8 +103,13 @@ Always reply in the same language as the user's message.`
   };
 
   return (
-    <section className="card assistant" id="assistant">
-      <div className="card-title">{t.chatTitle}</div>
+    <section className="card assistant desktop-assistant-container" id="assistant">
+      <div className="card-title-row">
+        <div className="card-title">{t.chatTitle || 'Stadium AI Assistant'}</div>
+        <button className="btn-ghost-sm" onClick={clearChat} title="Reset Conversation">
+          Clear Chat
+        </button>
+      </div>
 
       <div className="chat-box" role="log" aria-live="polite" aria-label="Conversation with stadium assistant">
         {messages.map((msg, idx) => (
@@ -100,7 +117,7 @@ Always reply in the same language as the user's message.`
             {msg.text}
           </div>
         ))}
-        {loading && <div className="bubble bot dim">{t.typing}</div>}
+        {loading && <div className="bubble bot dim">{t.typing || 'Analyzing venue telemetry...'}</div>}
         <div ref={chatBottomRef} />
       </div>
 
@@ -109,22 +126,27 @@ Always reply in the same language as the user's message.`
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-          placeholder={t.chatPlaceholder}
+          placeholder={t.chatPlaceholder || 'Ask: shortest queue, fastest exit, medical station...'}
           aria-label="Assistant question input"
         />
         <button onClick={() => sendMessage()} disabled={loading} aria-label="Send message to assistant">
-          {t.send}
+          {t.send || 'Send'}
         </button>
       </div>
 
-      <div className="server-note">Gemini is securely connected through the server.</div>
+      <div className="server-note">
+        Connected to venue intelligence engine. Automatic multilingual recognition enabled.
+      </div>
 
-      <div className="quick-list">
-        {quickPrompts.map((prompt) => (
-          <button key={prompt} className="chip" onClick={() => sendMessage(prompt)}>
-            {prompt}
-          </button>
-        ))}
+      <div className="quick-prompts-section">
+        <span className="quick-label">Suggested Inquiries:</span>
+        <div className="quick-list">
+          {CATEGORIZED_PROMPTS.map((item) => (
+            <button key={item.label} className="chip" onClick={() => sendMessage(item.prompt)}>
+              {item.label}
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );
