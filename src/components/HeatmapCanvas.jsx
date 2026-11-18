@@ -25,8 +25,18 @@ const GATE_DESCRIPTIONS = {
   g4: { name: 'Gate 4 (West Concourse)', status: 'Fastest (~1m)', tip: 'Recommended exit for all North and West concourse attendees.' }
 };
 
-export default function HeatmapCanvas() {
+const FACILITIES = [
+  { id: 'fc1', type: 'food', x: 280, y: 130, label: 'FC-A', name: 'Food Court A (East)', status: '18 min wait', tip: 'Burgers, pizza, and beverages. High wait time.' },
+  { id: 'fc2', type: 'food', x: 120, y: 170, label: 'FC-B', name: 'Food Court B (West)', status: '4 min wait (FASTEST)', tip: 'Chai, cold beverages, and express meal boxes.' },
+  { id: 'med1', type: 'medical', x: 340, y: 110, label: 'AID 1', name: 'First Aid Post 1', status: 'Open / Staffed', tip: 'Full medical staff, triage, and defibrillator (AED) on-site.' },
+  { id: 'med2', type: 'medical', x: 140, y: 45, label: 'AID 2', name: 'North Medical Standby', status: 'Open / Staffed', tip: 'Paramedic rapid-response station for North Stand.' },
+  { id: 'el1', type: 'access', x: 75, y: 110, label: 'ELEV 1', name: 'West Concourse Elevator', status: 'Operational', tip: 'Priority wheelchair and accessibility lift to Upper West.' },
+  { id: 'el2', type: 'access', x: 325, y: 190, label: 'ELEV 2', name: 'East Concourse Elevator', status: 'Operational', tip: 'Direct ramp connection to East Club lounge and restrooms.' }
+];
+
+export default function HeatmapCanvas({ activeRoute, densityData, onSelectLocation }) {
   const [selectedItem, setSelectedItem] = useState(null);
+  const [activeLayer, setActiveLayer] = useState('all'); // all, heatmap, food, medical, access
   const [data, setData] = useState({
     zones: [
       { id: 'N', x: 200, y: 60, d: 0.95, label: 'N' },
@@ -46,8 +56,19 @@ export default function HeatmapCanvas() {
     ]
   });
 
-  // Simulate live data updates
+  // Sync external density if provided, else simulate
   useEffect(() => {
+    if (densityData) {
+      setData((prev) => ({
+        ...prev,
+        zones: prev.zones.map((z) => ({
+          ...z,
+          d: densityData[z.id] !== undefined ? densityData[z.id] : z.d
+        }))
+      }));
+      return;
+    }
+
     const interval = setInterval(() => {
       setData((prev) => ({
         ...prev,
@@ -58,33 +79,107 @@ export default function HeatmapCanvas() {
       }));
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [densityData]);
 
   const handleSelectZone = (zone) => {
     const desc = ZONE_DESCRIPTIONS[zone.id] || { name: `${zone.label} Zone`, status: 'Active', tip: 'Monitored live.' };
-    setSelectedItem({
+    const item = {
       type: 'zone',
       id: zone.id,
       name: desc.name,
       density: Math.round(zone.d * 100),
       status: desc.status,
       tip: desc.tip
-    });
+    };
+    setSelectedItem(item);
+    onSelectLocation?.(item);
   };
 
   const handleSelectGate = (gate) => {
     const desc = GATE_DESCRIPTIONS[gate.id] || { name: gate.label, status: 'Active', tip: 'Monitored live.' };
-    setSelectedItem({
+    const item = {
       type: 'gate',
       id: gate.id,
       name: desc.name,
       status: desc.status,
       tip: desc.tip
-    });
+    };
+    setSelectedItem(item);
+    onSelectLocation?.(item);
   };
+
+  const handleSelectFacility = (fac) => {
+    const item = {
+      type: fac.type,
+      id: fac.id,
+      name: fac.name,
+      status: fac.status,
+      tip: fac.tip
+    };
+    setSelectedItem(item);
+    onSelectLocation?.(item);
+  };
+
+  // Compute SVG coordinates for the active route path
+  const getRouteSvgPath = () => {
+    if (!activeRoute || !activeRoute.stand) return null;
+    switch (activeRoute.stand) {
+      case 'North':
+        return 'M 200 20 L 200 60';
+      case 'South':
+        return 'M 200 280 L 200 240';
+      case 'East':
+        return 'M 370 150 L 320 150';
+      case 'West':
+        return 'M 30 150 L 80 150';
+      default:
+        return 'M 200 20 L 200 60';
+    }
+  };
+
+  const routePathD = getRouteSvgPath();
+
+  const showHeatmap = activeLayer === 'all' || activeLayer === 'heatmap';
+  const showFood = activeLayer === 'all' || activeLayer === 'food';
+  const showMedical = activeLayer === 'all' || activeLayer === 'medical';
+  const showAccess = activeLayer === 'all' || activeLayer === 'access';
 
   return (
     <div className="heatmap-wrapper">
+      {/* LAYER FILTER TOOLBAR */}
+      <div className="layer-filter-bar" role="toolbar" aria-label="Map layers filter">
+        <button
+          className={`layer-chip ${activeLayer === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveLayer('all')}
+        >
+          All Layers
+        </button>
+        <button
+          className={`layer-chip ${activeLayer === 'heatmap' ? 'active' : ''}`}
+          onClick={() => setActiveLayer('heatmap')}
+        >
+          Heatmap Only
+        </button>
+        <button
+          className={`layer-chip ${activeLayer === 'food' ? 'active' : ''}`}
+          onClick={() => setActiveLayer('food')}
+        >
+          Food Courts
+        </button>
+        <button
+          className={`layer-chip ${activeLayer === 'medical' ? 'active' : ''}`}
+          onClick={() => setActiveLayer('medical')}
+        >
+          Medical / AED
+        </button>
+        <button
+          className={`layer-chip ${activeLayer === 'access' ? 'active' : ''}`}
+          onClick={() => setActiveLayer('access')}
+        >
+          Elevators
+        </button>
+      </div>
+
       <div className="heatmap-container" style={{ position: 'relative', width: '100%', aspectRatio: '4/3', minHeight: '260px' }}>
         <svg
           viewBox="0 0 400 300"
@@ -123,21 +218,45 @@ export default function HeatmapCanvas() {
           <rect x="175" y="200" width="50" height="20" fill="none" stroke="#94a3b8" strokeWidth="1" />
 
           {/* HEATMAP OVERLAYS */}
-          <g filter="url(#heat-blur)">
-            {data.zones.map(zone => (
-              <circle
-                key={zone.id}
-                cx={zone.x}
-                cy={zone.y}
-                r={15 + (zone.d * 20)}
-                fill={getDensityColor(zone.d)}
-                style={{ transition: 'all 1.5s ease', pointerEvents: 'none' }}
-              />
-            ))}
-          </g>
+          {showHeatmap && (
+            <g filter="url(#heat-blur)">
+              {data.zones.map(zone => (
+                <circle
+                  key={zone.id}
+                  cx={zone.x}
+                  cy={zone.y}
+                  r={15 + (zone.d * 20)}
+                  fill={getDensityColor(zone.d)}
+                  style={{ transition: 'all 1.5s ease', pointerEvents: 'none' }}
+                />
+              ))}
+            </g>
+          )}
+
+          {/* ANIMATED WAYFINDING ROUTE PATH */}
+          {routePathD && (
+            <g>
+              <path
+                d={routePathD}
+                fill="none"
+                stroke="#2563eb"
+                strokeWidth="4"
+                strokeLinecap="round"
+                strokeDasharray="6 6"
+              >
+                <animate
+                  attributeName="stroke-dashoffset"
+                  from="24"
+                  to="0"
+                  dur="1s"
+                  repeatCount="indefinite"
+                />
+              </path>
+            </g>
+          )}
 
           {/* LABELS AND DATA PILLS (CLICKABLE) */}
-          {data.zones.map(zone => {
+          {showHeatmap && data.zones.map(zone => {
             const isSelected = selectedItem?.type === 'zone' && selectedItem?.id === zone.id;
             return (
               <g
@@ -157,8 +276,8 @@ export default function HeatmapCanvas() {
                   width="32"
                   height="20"
                   rx="4"
-                  fill={isSelected ? '#3b82f6' : 'rgba(255,255,255,0.92)'}
-                  stroke={isSelected ? '#2563eb' : '#cbd5e1'}
+                  fill={isSelected ? '#2563eb' : 'rgba(255,255,255,0.92)'}
+                  stroke={isSelected ? '#1d4ed8' : '#cbd5e1'}
                   strokeWidth={isSelected ? 1.5 : 1}
                 />
                 <text
@@ -188,7 +307,7 @@ export default function HeatmapCanvas() {
             );
           })}
 
-          {/* GATES (ENTRY/EXIT POINTS - CLICKABLE) */}
+          {/* GATES (ENTRY/EXIT POINTS) */}
           {data.gates.map(gate => {
             const isSelected = selectedItem?.type === 'gate' && selectedItem?.id === gate.id;
             return (
@@ -197,14 +316,11 @@ export default function HeatmapCanvas() {
                 onClick={() => handleSelectGate(gate)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Gate pulsating ring */}
                 <circle cx={gate.x} cy={gate.y} r={isSelected ? 16 : 12} fill={gate.color} opacity={isSelected ? 0.35 : 0.15}>
                   <animate attributeName="r" values="8;16;8" dur="2s" repeatCount="indefinite" />
                   <animate attributeName="opacity" values="0.3;0;0.3" dur="2s" repeatCount="indefinite" />
                 </circle>
-                {/* Gate core dot */}
                 <circle cx={gate.x} cy={gate.y} r={isSelected ? 6 : 5} fill="#fff" stroke={gate.color} strokeWidth={isSelected ? 3 : 2} />
-                {/* Gate label background */}
                 <rect
                   x={gate.x - 24}
                   y={gate.y > 150 ? gate.y + 8 : gate.y - 20}
@@ -215,7 +331,6 @@ export default function HeatmapCanvas() {
                   stroke={gate.color}
                   strokeWidth="1"
                 />
-                {/* Gate label text */}
                 <text
                   x={gate.x}
                   y={gate.y > 150 ? gate.y + 17 : gate.y - 11}
@@ -230,6 +345,52 @@ export default function HeatmapCanvas() {
               </g>
             );
           })}
+
+          {/* FACILITY PINS: CONCESSIONS, MEDICAL, ACCESSIBILITY */}
+          {FACILITIES.map(fac => {
+            const isVisible = (fac.type === 'food' && showFood) ||
+                              (fac.type === 'medical' && showMedical) ||
+                              (fac.type === 'access' && showAccess);
+            if (!isVisible) return null;
+
+            const isSelected = selectedItem?.id === fac.id;
+            const badgeColor = fac.type === 'food' ? '#f59e0b' : fac.type === 'medical' ? '#ef4444' : '#8b5cf6';
+
+            return (
+              <g
+                key={fac.id}
+                transform={`translate(${fac.x}, ${fac.y})`}
+                onClick={() => handleSelectFacility(fac)}
+                style={{ cursor: 'pointer' }}
+              >
+                <circle cx="0" cy="0" r={isSelected ? 14 : 10} fill={badgeColor} opacity={0.2}>
+                  <animate attributeName="r" values="9;14;9" dur="2s" repeatCount="indefinite" />
+                </circle>
+                <rect
+                  x="-18"
+                  y="-9"
+                  width="36"
+                  height="18"
+                  rx="4"
+                  fill={isSelected ? badgeColor : '#ffffff'}
+                  stroke={badgeColor}
+                  strokeWidth="1.5"
+                />
+                <text
+                  x="0"
+                  y="2"
+                  fontSize="8"
+                  fontFamily="Inter, sans-serif"
+                  fontWeight="700"
+                  fill={isSelected ? '#ffffff' : badgeColor}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                >
+                  {fac.label}
+                </text>
+              </g>
+            );
+          })}
         </svg>
       </div>
 
@@ -238,7 +399,12 @@ export default function HeatmapCanvas() {
         <div className="zone-inspector-card">
           <div className="inspector-header">
             <div>
-              <span className="inspector-tag">{selectedItem.type === 'zone' ? 'Stand Zone' : 'Gate Concourse'}</span>
+              <span className="inspector-tag">
+                {selectedItem.type === 'zone' ? 'Stand Zone' :
+                 selectedItem.type === 'gate' ? 'Entry / Exit Gate' :
+                 selectedItem.type === 'food' ? 'Concession / Food Court' :
+                 selectedItem.type === 'medical' ? 'Medical Station' : 'Accessible Elevator'}
+              </span>
               <h4 className="inspector-title">{selectedItem.name}</h4>
             </div>
             <button className="inspector-close" onClick={() => setSelectedItem(null)} aria-label="Close inspector">
@@ -252,7 +418,7 @@ export default function HeatmapCanvas() {
         </div>
       ) : (
         <div className="map-hint">
-          <span>Tip: Click on any Stand Zone (N, S, E, W) or Gate to inspect real-time crowd metrics.</span>
+          <span>Tip: Click on any Stand (N, S, E, W), Gate, Concession, or First Aid marker to view live data.</span>
         </div>
       )}
     </div>

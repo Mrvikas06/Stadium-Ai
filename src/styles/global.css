@@ -392,6 +392,37 @@ button:active {
 }
 
 /* Heatmap & Interactive Inspector */
+.layer-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.layer-chip {
+  padding: 5px 12px;
+  background-color: #f1f5f9;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.layer-chip:hover {
+  background-color: #e2e8f0;
+  color: var(--text-primary);
+}
+
+.layer-chip.active {
+  background-color: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  box-shadow: 0 1px 3px var(--accent-glow);
+}
+
 .title-row {
   display: flex;
   justify-content: space-between;
