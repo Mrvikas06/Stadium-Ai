@@ -12,6 +12,13 @@ describe('Server API Endpoints', () => {
     expect(res.body.timestamp).toBeDefined();
   });
 
+  it('sets secure HTTP headers on responses', async () => {
+    const res = await request(app).get('/api/health');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['x-frame-options']).toBe('DENY');
+    expect(res.headers['referrer-policy']).toBe('strict-origin-when-cross-origin');
+  });
+
   it('GET /api/nonexistent should return 404 JSON', async () => {
     const res = await request(app).get('/api/nonexistent');
     expect(res.status).toBe(404);
@@ -50,5 +57,19 @@ describe('Server API Endpoints', () => {
     expect(res.status).toBe(200);
     expect(res.body.reply).toBeDefined();
     expect(res.body.reply).toMatch(/Food Court/i);
+  });
+
+  it('enforces rate limit when test header is present', async () => {
+    // Send 31 rapid requests with test rate limit header
+    let lastRes;
+    for (let i = 0; i < 32; i++) {
+      lastRes = await request(app)
+        .post('/api/gemini')
+        .set('x-test-ratelimit', 'true')
+        .send({ userPrompt: 'ping' });
+    }
+    expect(lastRes.status).toBe(429);
+    expect(lastRes.body.error).toMatch(/Too many requests/i);
+    expect(lastRes.headers['retry-after']).toBeDefined();
   });
 });
