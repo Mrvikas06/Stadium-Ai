@@ -25,20 +25,97 @@ function sanitizeLanguage(code) {
   return SUPPORTED_LANGUAGE_CODES.has(code) ? code : 'en';
 }
 
-const initialQueues = [
-  { name: 'Food Court A', wait: 18, level: 'high' },
-  { name: 'Food Court B', wait: 4, level: 'low' },
-  { name: 'Restroom Block 1', wait: 9, level: 'medium' },
-  { name: 'Restroom Block 2', wait: 2, level: 'low' },
-  { name: 'Gate 1 (Main Entry)', wait: 14, level: 'high' },
-  { name: 'Gate 4 (West Exit)', wait: 1, level: 'low' }
-];
-
-const initialAlerts = [
-  { id: 1, tone: 'danger', text: 'North Stand N3-N7 above 95% occupancy.' },
-  { id: 2, tone: 'warn', text: 'Food Court A exceeds 15 min wait time.' },
-  { id: 3, tone: 'safe', text: 'Corridor C2 congestion resolved successfully.' }
-];
+export const SCENARIOS = {
+  live: {
+    id: 'live',
+    label: 'Standard Match Play',
+    attendees: '68,420',
+    occupancyPct: 91,
+    wait: 4.2,
+    noiseDb: 92,
+    density: { N: 0.95, S: 0.66, E: 0.44, W: 0.62, NE: 0.79, NW: 0.82, SE: 0.53, SW: 0.39 },
+    ticker: 'Live Match in progress • Gate 4 fastest exit • North Stand high volume • Concourse C monitored',
+    queues: [
+      { name: 'Food Court A', wait: 18, level: 'high' },
+      { name: 'Food Court B', wait: 4, level: 'low' },
+      { name: 'Restroom Block 1', wait: 9, level: 'medium' },
+      { name: 'Restroom Block 2', wait: 2, level: 'low' },
+      { name: 'Gate 1 (Main Entry)', wait: 14, level: 'high' },
+      { name: 'Gate 4 (West Exit)', wait: 1, level: 'low' }
+    ],
+    alerts: [
+      { id: 1, tone: 'danger', text: 'North Stand N3-N7 above 95% occupancy.' },
+      { id: 2, tone: 'warn', text: 'Food Court A exceeds 15 min wait time.' },
+      { id: 3, tone: 'safe', text: 'Corridor C2 congestion resolved successfully.' }
+    ]
+  },
+  ingress: {
+    id: 'ingress',
+    label: 'Gates Opening (Ingress)',
+    attendees: '41,850',
+    occupancyPct: 56,
+    wait: 8.5,
+    noiseDb: 78,
+    density: { N: 0.45, S: 0.38, E: 0.30, W: 0.35, NE: 0.85, NW: 0.88, SE: 0.40, SW: 0.35 },
+    ticker: 'Entry Gates Open • Gate 1 experiencing surge (16m wait) • Recommend Gate 3 and Gate 4 for expedited bag check',
+    queues: [
+      { name: 'Gate 1 (Main Entry)', wait: 16, level: 'high' },
+      { name: 'Gate 2 (East Concourse)', wait: 11, level: 'medium' },
+      { name: 'Gate 3 (South Concourse)', wait: 3, level: 'low' },
+      { name: 'Gate 4 (West Concourse)', wait: 2, level: 'low' },
+      { name: 'Food Court A', wait: 3, level: 'low' },
+      { name: 'Restroom Block 1', wait: 1, level: 'low' }
+    ],
+    alerts: [
+      { id: 101, tone: 'warn', text: 'Gate 1 turnstile queue exceeding 15 minutes. Diverting fans to Gate 4.' },
+      { id: 102, tone: 'safe', text: 'Security bag scanners operating at 100% capacity across all gates.' }
+    ]
+  },
+  halftime: {
+    id: 'halftime',
+    label: 'Halftime Rush (Peak Concessions)',
+    attendees: '73,200',
+    occupancyPct: 97,
+    wait: 12.8,
+    noiseDb: 89,
+    density: { N: 0.88, S: 0.84, E: 0.82, W: 0.79, NE: 0.94, NW: 0.96, SE: 0.89, SW: 0.75 },
+    ticker: 'Halftime Intermission • Heavy rush at Food Court A (24m wait) • Use Food Court B or Level 2 express stations',
+    queues: [
+      { name: 'Food Court A', wait: 24, level: 'high' },
+      { name: 'Food Court B', wait: 8, level: 'medium' },
+      { name: 'Restroom Block 1', wait: 15, level: 'high' },
+      { name: 'Restroom Block 2', wait: 9, level: 'medium' },
+      { name: 'Concourse C Breezeway', wait: 6, level: 'medium' },
+      { name: 'Gate 4 Concourse', wait: 2, level: 'low' }
+    ],
+    alerts: [
+      { id: 201, tone: 'danger', text: 'Food Court A congestion exceeds 20 minutes. Additional staff deployed.' },
+      { id: 202, tone: 'warn', text: 'Restroom Block 1 line extending into concourse walkway.' }
+    ]
+  },
+  egress: {
+    id: 'egress',
+    label: 'Match Finished (Rapid Egress)',
+    attendees: '62,100',
+    occupancyPct: 83,
+    wait: 5.1,
+    noiseDb: 96,
+    density: { N: 0.70, S: 0.55, E: 0.40, W: 0.45, NE: 0.65, NW: 0.72, SE: 0.50, SW: 0.35 },
+    ticker: 'Match Concluded • All 4 perimeter exit gates unlocked • Gate 4 West offers quickest access to shuttle transit',
+    queues: [
+      { name: 'Gate 1 Egress', wait: 12, level: 'high' },
+      { name: 'Gate 2 Egress', wait: 6, level: 'medium' },
+      { name: 'Gate 3 Egress', wait: 4, level: 'low' },
+      { name: 'Gate 4 West (Express)', wait: 1, level: 'low' },
+      { name: 'Taxi / Rideshare Pickup', wait: 18, level: 'high' },
+      { name: 'Train Station Walkway', wait: 7, level: 'medium' }
+    ],
+    alerts: [
+      { id: 301, tone: 'safe', text: 'Emergency egress corridors fully open. Gate 4 flowing at 180 spectators/min.' },
+      { id: 302, tone: 'warn', text: 'Rideshare lot queue active. Public transit metro running extra trains.' }
+    ]
+  }
+};
 
 const SvgIcon = ({ d, viewBox = "0 0 24 24" }) => (
   <svg viewBox={viewBox} className="icon" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -115,14 +192,19 @@ export function calculateSmartRoute(fromLocation, targetSeat) {
 export default function App() {
   const [lang, setLang] = useState(() => sanitizeLanguage(localStorage.getItem('stadium_lang')));
   const [dict, setDict] = useState(defaultTranslations.en);
-  const [wait, setWait] = useState(4.2);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [scenarioKey, setScenarioKey] = useState('live');
   const [fromLocation, setFromLocation] = useState('Current Location');
   const [seatInput, setSeatInput] = useState('');
   const [routeResult, setRouteResult] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
-  const [alerts, setAlerts] = useState(initialAlerts);
-  const [queues] = useState(initialQueues);
+
+  const scenario = SCENARIOS[scenarioKey] || SCENARIOS.live;
+  const [alerts, setAlerts] = useState(scenario.alerts);
+
+  useEffect(() => {
+    setAlerts(scenario.alerts);
+  }, [scenarioKey]);
 
   function handleRoutePlanner(e) {
     e.preventDefault();
@@ -158,13 +240,6 @@ export default function App() {
       mounted = false;
     };
   }, [lang]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      setWait((prev) => Math.max(2.1, Math.min(8.3, prev + (Math.random() - 0.5) * 0.8)));
-    }, 8000);
-    return () => clearInterval(id);
-  }, []);
 
   const t = useMemo(() => ({ ...defaultTranslations.en, ...dict }), [dict]);
 
@@ -228,19 +303,35 @@ export default function App() {
       {/* Info Ticker */}
       <div className="ticker-wrapper">
         <div className="marquee-text">
-          <span>AI routing active • Gate 4 recommended for fast egress • North stand at 97% • Food Court B fastest wait • Restroom Block 2 clear • Safety corridors open •</span>
+          <span>{scenario.ticker}</span>
         </div>
       </div>
 
       <main className="main-content">
+        {/* INTERACTIVE SCENARIO SIMULATOR STRIP */}
+        <section className="scenario-bar" aria-label="Event scenario simulator">
+          <span className="scenario-label">Scenario Mode:</span>
+          <div className="scenario-pills">
+            {Object.values(SCENARIOS).map((s) => (
+              <button
+                key={s.id}
+                className={`scenario-pill ${scenarioKey === s.id ? 'active' : ''}`}
+                onClick={() => setScenarioKey(s.id)}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
         {/* DASHBOARD TAB */}
         {activeTab === 'dashboard' && (
           <div className="tab-view fade-slide-in">
             <section className="stats-grid">
-              <StatCard label="Total Attendees" value="68,420" sub="of 75,000 capacity (91.2%)" tone="ok" />
-              <StatCard label="Avg Concourse Wait" value={`${wait.toFixed(1)}m`} sub="dynamic live sensor" tone="warn" />
-              <StatCard label="Active Alerts" value={String(alerts.length)} sub="real-time safety feed" tone="danger" />
-              <StatCard label="AI Inquiries Resolved" value="1,247" sub="98.2% satisfaction" tone="accent" />
+              <StatCard label="Total Attendees" value={scenario.attendees} sub={`of 75,000 capacity (${scenario.occupancyPct}%)`} tone="ok" />
+              <StatCard label="Avg Concourse Wait" value={`${scenario.wait}m`} sub="dynamic live sensor" tone={scenario.wait > 10 ? 'danger' : scenario.wait > 5 ? 'warn' : 'ok'} />
+              <StatCard label="Stadium Sound Level" value={`${scenario.noiseDb} dB`} sub={scenario.noiseDb > 90 ? 'High Crowd Energy' : 'Moderate Volume'} tone="accent" />
+              <StatCard label="Active Alerts" value={String(alerts.length)} sub="real-time safety feed" tone={alerts.length > 2 ? 'danger' : 'warn'} />
             </section>
 
             <div className="desktop-two-col">
@@ -250,7 +341,7 @@ export default function App() {
                   <h2>{t.densityMap || 'Live Crowd Density Map'}</h2>
                   <span className="live-text">Real-Time Sensor Feed</span>
                 </div>
-                <HeatmapCanvas />
+                <HeatmapCanvas densityData={scenario.density} activeRoute={routeResult} />
                 <div className="legend">
                   <span><i className="low" /> Low (&lt;40%)</span>
                   <span><i className="med" /> Medium (40-70%)</span>
@@ -265,21 +356,29 @@ export default function App() {
                   <h2>{t.occupancy || 'Venue Occupancy & Stand Flow'}</h2>
                   <div className="ring-wrap">
                     <div className="ring-border">
-                      <span className="ring-val">91<small>%</small></span>
+                      <span className="ring-val">{scenario.occupancyPct}<small>%</small></span>
                     </div>
                   </div>
                   <div className="pill-grid">
-                    <span className="pill high">North Stand 97%</span>
-                    <span className="pill med">South Stand 72%</span>
-                    <span className="pill low">East Stand 45%</span>
-                    <span className="pill med">West Stand 68%</span>
+                    <span className={`pill ${scenario.density.N > 0.7 ? 'high' : scenario.density.N > 0.4 ? 'med' : 'low'}`}>
+                      North Stand {Math.round(scenario.density.N * 100)}%
+                    </span>
+                    <span className={`pill ${scenario.density.S > 0.7 ? 'high' : scenario.density.S > 0.4 ? 'med' : 'low'}`}>
+                      South Stand {Math.round(scenario.density.S * 100)}%
+                    </span>
+                    <span className={`pill ${scenario.density.E > 0.7 ? 'high' : scenario.density.E > 0.4 ? 'med' : 'low'}`}>
+                      East Stand {Math.round(scenario.density.E * 100)}%
+                    </span>
+                    <span className={`pill ${scenario.density.W > 0.7 ? 'high' : scenario.density.W > 0.4 ? 'med' : 'low'}`}>
+                      West Stand {Math.round(scenario.density.W * 100)}%
+                    </span>
                   </div>
                 </article>
 
                 <article className="card mt-3">
                   <AccordionItem
                     title={t.queueTimes || 'Real-Time Concourse Queues'}
-                    data={queues}
+                    data={scenario.queues}
                     renderItem={(q) => (
                       <div className="queue-row" key={q.name}>
                         <span className="queue-name">{q.name}</span>
@@ -368,7 +467,7 @@ export default function App() {
                       <div style={{ padding: '10px 14px', background: 'rgba(255,255,255,0.85)', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.06)', width: '100%', marginBottom: '6px', fontSize: '0.9rem', fontWeight: 600 }}>
                         {routeResult.path}
                       </div>
-                      <small style={{ fontWeight: 600, color: '#047857' }}>{routeResult.status}</small>
+                      <small style={{ fontWeight: 600, color: '#047857' }}>{routeResult.status} (Visualized on map)</small>
                     </div>
                   )}
                 </article>
@@ -383,27 +482,20 @@ export default function App() {
                 </article>
               </div>
 
-              {/* Right Column: Stand Breakdown & Concourse Queues */}
+              {/* Right Column: Interactive Map with Pathfinding visualizer */}
               <div>
-                <article className="card occupancy-card">
-                  <h2>{t.occupancy || 'Stand Occupancy Summary'}</h2>
-                  <div className="ring-wrap">
-                    <div className="ring-border">
-                      <span className="ring-val">91<small>%</small></span>
-                    </div>
+                <article className="card map-card">
+                  <div className="title-row">
+                    <h2>Route Map Navigation</h2>
+                    <span className="live-text">Live Wayfinding</span>
                   </div>
-                  <div className="pill-grid">
-                    <span className="pill high">North Stand 97%</span>
-                    <span className="pill med">South Stand 72%</span>
-                    <span className="pill low">East Stand 45%</span>
-                    <span className="pill med">West Stand 68%</span>
-                  </div>
+                  <HeatmapCanvas densityData={scenario.density} activeRoute={routeResult} />
                 </article>
 
                 <article className="card mt-3">
                   <AccordionItem
                     title={t.queueTimes || 'Turnstile & Concession Times'}
-                    data={queues}
+                    data={scenario.queues}
                     renderItem={(q) => (
                       <div className="queue-row" key={q.name}>
                         <span className="queue-name">{q.name}</span>
@@ -439,6 +531,10 @@ export default function App() {
                   <div>
                     <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>Emergency Station:</strong>
                     <span>First Aid 1 at Gate 2 Concourse</span>
+                  </div>
+                  <div>
+                    <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>Current Scenario:</strong>
+                    <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{scenario.label}</span>
                   </div>
                   <div>
                     <strong style={{ color: 'var(--text-primary)', display: 'block', marginBottom: '2px' }}>Multilingual Engine:</strong>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateSmartRoute } from '../src/App.jsx';
+import { calculateSmartRoute, SCENARIOS } from '../src/App.jsx';
 import { detectInputLanguage } from '../src/components/AssistantPanel.jsx';
 
 describe('Smart Route Planner Algorithm', () => {
@@ -52,5 +52,24 @@ describe('Language Heuristic Detection', () => {
 
   it('falls back to default language for standard English', () => {
     expect(detectInputLanguage('Where is the nearest medical booth?', 'en')).toBe('en');
+  });
+});
+
+describe('Event Scenarios Simulation Data', () => {
+  it('provides all 4 core stadium operational scenarios', () => {
+    expect(SCENARIOS.live).toBeDefined();
+    expect(SCENARIOS.ingress).toBeDefined();
+    expect(SCENARIOS.halftime).toBeDefined();
+    expect(SCENARIOS.egress).toBeDefined();
+  });
+
+  it('scenarios contain valid occupancy and queue records', () => {
+    Object.values(SCENARIOS).forEach((scenario) => {
+      expect(scenario.attendees).toBeDefined();
+      expect(typeof scenario.occupancyPct).toBe('number');
+      expect(scenario.queues.length).toBeGreaterThanOrEqual(4);
+      expect(scenario.density.N).toBeGreaterThan(0);
+      expect(scenario.density.S).toBeGreaterThan(0);
+    });
   });
 });
