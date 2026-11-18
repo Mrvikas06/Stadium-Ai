@@ -45,6 +45,8 @@ export default function HeatmapCanvas() {
     <div className="heatmap-container" style={{ position: 'relative', width: '100%', aspectRatio: '4/3', minHeight: '200px' }}>
       <svg
         viewBox="0 0 400 300"
+        role="img"
+        aria-label="Stadium occupancy and crowd density map"
         style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.05))' }}
       >
         <defs>

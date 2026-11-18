@@ -94,7 +94,7 @@ Always reply in the same language as the user's message.`
     <section className="card assistant" id="assistant">
       <div className="card-title">{t.chatTitle}</div>
 
-      <div className="chat-box">
+      <div className="chat-box" role="log" aria-live="polite" aria-label="Conversation with stadium assistant">
         {messages.map((msg, idx) => (
           <div key={`${msg.role}-${idx}`} className={`bubble ${msg.role}`}>
             {msg.text}
@@ -110,8 +110,9 @@ Always reply in the same language as the user's message.`
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
           placeholder={t.chatPlaceholder}
+          aria-label="Assistant question input"
         />
-        <button onClick={() => sendMessage()} disabled={loading}>
+        <button onClick={() => sendMessage()} disabled={loading} aria-label="Send message to assistant">
           {t.send}
         </button>
       </div>

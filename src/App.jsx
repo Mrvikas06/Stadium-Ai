@@ -168,12 +168,17 @@ export default function App() {
       <header className="topbar">
         <h1 className="brand-title">{t.title}</h1>
         <div className="topbar-right">
-          <select className="select-input" value={lang} onChange={(e) => setLang(sanitizeLanguage(e.target.value))}>
+          <select
+            className="select-input"
+            value={lang}
+            onChange={(e) => setLang(sanitizeLanguage(e.target.value))}
+            aria-label="Language selection"
+          >
             {LANGUAGE_OPTIONS.map((item) => (
               <option key={item.code} value={item.code}>{item.label}</option>
             ))}
           </select>
-          <span className="live-pill">● {t.live}</span>
+          <span className="live-pill" role="status" aria-live="polite">● {t.live}</span>
         </div>
       </header>
 
@@ -309,16 +314,34 @@ export default function App() {
       </main>
 
       {/* Floating Bottom Nav for Mobile */}
-      <nav className="bottom-nav glass-nav">
-        <button className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+      <nav className="bottom-nav glass-nav" role="tablist" aria-label="Main application tabs">
+        <button
+          className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setActiveTab('dashboard')}
+          role="tab"
+          aria-selected={activeTab === 'dashboard'}
+          aria-label="Dashboard Tab"
+        >
           <SvgIcon d="M3 3v18h18 M9 15l3-3 4 4 5-5" />
           <span>Dashboard</span>
         </button>
-        <button className={`nav-item ${activeTab === 'navigate' ? 'active' : ''}`} onClick={() => setActiveTab('navigate')}>
+        <button
+          className={`nav-item ${activeTab === 'navigate' ? 'active' : ''}`}
+          onClick={() => setActiveTab('navigate')}
+          role="tab"
+          aria-selected={activeTab === 'navigate'}
+          aria-label="Navigate Tab"
+        >
           <SvgIcon d="M12 22s-8-4.5-8-11.8A8 8 0 0112 2a8 8 0 018 8.2c0 7.3-8 11.8-8 11.8z" />
           <span>Navigate</span>
         </button>
-        <button className={`nav-item ${activeTab === 'assistant' ? 'active' : ''}`} onClick={() => setActiveTab('assistant')}>
+        <button
+          className={`nav-item ${activeTab === 'assistant' ? 'active' : ''}`}
+          onClick={() => setActiveTab('assistant')}
+          role="tab"
+          aria-selected={activeTab === 'assistant'}
+          aria-label="AI Assistant Tab"
+        >
           <SvgIcon d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z" />
           <span>Agent</span>
         </button>
