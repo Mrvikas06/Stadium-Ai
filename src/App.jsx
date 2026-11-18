@@ -5,6 +5,7 @@ import { defaultTranslations, loadTranslations } from './lib/i18n';
 
 const LANGUAGE_OPTIONS = [
   { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' },
   { code: 'hi', label: 'हिन्दी' },
   { code: 'bn', label: 'বাংলা' },
   { code: 'ta', label: 'தமிழ்' },
@@ -72,27 +73,72 @@ function AccordionItem({ title, data, renderItem }) {
   );
 }
 
+function calculateSmartRoute(fromLocation, targetSeat) {
+  const seatUpper = (targetSeat || '').toUpperCase().trim();
+  let stand = 'North';
+  if (seatUpper.includes('SOUTH') || seatUpper.startsWith('S')) stand = 'South';
+  else if (seatUpper.includes('EAST') || seatUpper.startsWith('E')) stand = 'East';
+  else if (seatUpper.includes('WEST') || seatUpper.startsWith('W')) stand = 'West';
+  else if (seatUpper.includes('NORTH') || seatUpper.startsWith('N')) stand = 'North';
+
+  let path = '';
+  let eta = '3 mins';
+  let status = 'Optimal route computed.';
+
+  switch (stand) {
+    case 'South':
+      path = `${fromLocation} → Concourse A → South Lower Walkway → South Stand`;
+      eta = '2.5 mins';
+      status = 'Low crowd zone. Rapid transit via Concourse A.';
+      break;
+    case 'East':
+      path = `${fromLocation} → Concourse B → East Stand Escalator 2 → East Stand`;
+      eta = '3.5 mins';
+      status = 'Bypasses Food Court A congestion via Level 2 breezeway.';
+      break;
+    case 'West':
+      path = `${fromLocation} → Concourse D → Gate 4 Breezeway → West Stand`;
+      eta = '2 mins';
+      status = 'Fastest flow path. West concourse has minimum queue.';
+      break;
+    case 'North':
+    default:
+      path = `${fromLocation} → Concourse C → Ramp N2 → North Stand`;
+      eta = '4 mins';
+      status = 'North concourse active (>95%). Ramp N2 avoids central stairway bottleneck.';
+      break;
+  }
+
+  return { path, eta, status, stand };
+}
+
 export default function App() {
   const [lang, setLang] = useState(() => sanitizeLanguage(localStorage.getItem('stadium_lang')));
   const [dict, setDict] = useState(defaultTranslations.en);
   const [wait, setWait] = useState(4.2);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [fromLocation, setFromLocation] = useState('Current Location');
+  const [seatInput, setSeatInput] = useState('');
   const [routeResult, setRouteResult] = useState(null);
   const [routeLoading, setRouteLoading] = useState(false);
 
   function handleRoutePlanner(e) {
     e.preventDefault();
+    if (!seatInput.trim()) return;
     setRouteLoading(true);
     setRouteResult(null);
 
     setTimeout(() => {
       setRouteLoading(false);
+      const computed = calculateSmartRoute(fromLocation, seatInput);
       setRouteResult({
-        path: 'Current Loc → Concourse C → East Stand Stairs',
-        eta: '4 mins',
-        status: 'Route optimized. Avoids heavy congestion.'
+        path: computed.path,
+        eta: computed.eta,
+        status: computed.status,
+        stand: computed.stand,
+        seat: seatInput.trim()
       });
-    }, 1200);
+    }, 600);
   }
 
   useEffect(() => {
@@ -102,7 +148,9 @@ export default function App() {
       setDict({ ...defaultTranslations.en, ...tr });
       localStorage.setItem('stadium_lang', lang);
     });
-    return () => mounted = false;
+    return () => {
+      mounted = false;
+    };
   }, [lang]);
 
   useEffect(() => {
@@ -212,16 +260,35 @@ export default function App() {
             <article className="card mt-3">
               <h2>{t.routePlanner}</h2>
               <form className="route-form" onSubmit={handleRoutePlanner}>
-                <select className="input-field"><option>From: Current Location</option><option>Gate 1</option></select>
-                <input className="input-field" placeholder="Seat (e.g. N5-R12-S24)" required />
-                <button className="btn-primary" disabled={routeLoading}>
+                <select
+                  className="input-field"
+                  value={fromLocation}
+                  onChange={(e) => setFromLocation(e.target.value)}
+                >
+                  <option value="Current Location">From: Current Location</option>
+                  <option value="Gate 1 (Main)">From: Gate 1 (Main Concourse)</option>
+                  <option value="Gate 2 (East)">From: Gate 2 (East Concourse)</option>
+                  <option value="Gate 3 (South)">From: Gate 3 (South Concourse)</option>
+                  <option value="Gate 4 (West)">From: Gate 4 (West Concourse)</option>
+                </select>
+                <input
+                  className="input-field"
+                  placeholder="Seat / Block (e.g. N5-R12-S24, West W2, South S4)"
+                  value={seatInput}
+                  onChange={(e) => setSeatInput(e.target.value)}
+                  required
+                />
+                <button className="btn-primary" type="submit" disabled={routeLoading}>
                   {routeLoading ? 'Calculating...' : (t.routePlanner || "Find Optimal Route")}
                 </button>
               </form>
               {routeResult && (
                 <div className="alert safe" style={{ marginTop: '16px', flexDirection: 'column', alignItems: 'flex-start' }}>
-                  <strong style={{ display: 'block', fontSize: '1.05rem', marginBottom: '4px' }}>ETA: {routeResult.eta}</strong>
-                  <div style={{ padding: '8px', background: 'rgba(255,255,255,0.7)', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)', width: '100%', marginBottom: '4px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', marginBottom: '4px' }}>
+                    <strong style={{ fontSize: '1.05rem' }}>ETA: {routeResult.eta}</strong>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Destination: {routeResult.stand} Stand</span>
+                  </div>
+                  <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.7)', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)', width: '100%', marginBottom: '4px', fontSize: '0.9rem' }}>
                     {routeResult.path}
                   </div>
                   <small style={{ fontWeight: 600 }}>{routeResult.status}</small>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { askGemini } from '../lib/gemini';
 
 const quickPrompts = [
@@ -55,6 +55,11 @@ export default function AssistantPanel({ t, lang }) {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const chatBottomRef = useRef(null);
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loading]);
 
   const sendMessage = async (prompt) => {
     const text = (prompt ?? input).trim();
@@ -95,6 +100,7 @@ Always reply in the same language as the user's message.`
           </div>
         ))}
         {loading && <div className="bubble bot dim">{t.typing}</div>}
+        <div ref={chatBottomRef} />
       </div>
 
       <div className="chat-row">
