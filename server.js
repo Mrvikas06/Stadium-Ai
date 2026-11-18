@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 8787;
+const PORT = Number(process.env.PORT) || 8791;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -14,43 +14,86 @@ const distDir = path.join(__dirname, 'dist');
 
 app.use(express.json({ limit: '1mb' }));
 
+// Health and readiness check endpoint
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY),
+    model: GEMINI_MODEL
+  });
+});
+
+function getSimulatedFallback(prompt, languageCode = 'en') {
+  const q = (prompt || '').toLowerCase();
+  if (q.includes('food') || q.includes('snack') || q.includes('queue') || q.includes('line')) {
+    return 'Food Court B currently has the shortest wait (approx 4 mins). Food Court A is currently congested at 18 mins.';
+  }
+  if (q.includes('gate') || q.includes('exit') || q.includes('crowd')) {
+    return 'Gate 4 on the West concourse currently has the lowest congestion for exit. Gate 1 Main is at high capacity.';
+  }
+  if (q.includes('first aid') || q.includes('medical') || q.includes('help') || q.includes('doctor')) {
+    return 'First Aid Station 1 is located near Gate 2 on Concourse Level 1. Mobile paramedics are stationed at North Stand aisle 4.';
+  }
+  if (q.includes('restroom') || q.includes('toilet') || q.includes('washroom')) {
+    return 'Restroom Block 2 (South Concourse) is currently clear with under 2 mins wait. Restroom Block 1 has moderate wait.';
+  }
+  return `Stadium operations active: Recommended Gate 4 for rapid exit, Food Court B for fast dining. All safety lanes remain clear. (Language: ${languageCode})`;
+}
+
 app.post('/api/gemini', async (req, res) => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return res.status(500).json({ error: 'GEMINI_API_KEY is not configured on the server' });
+    const { userPrompt, systemPrompt, languageCode = 'en' } = req.body || {};
+    if (!userPrompt || typeof userPrompt !== 'string' || !userPrompt.trim()) {
+      return res.status(400).json({ error: 'userPrompt is required and must be non-empty string' });
     }
 
-    const { userPrompt, systemPrompt, languageCode = 'en' } = req.body || {};
-    if (!userPrompt || typeof userPrompt !== 'string') {
-      return res.status(400).json({ error: 'userPrompt is required' });
+    if (userPrompt.length > 2000) {
+      return res.status(400).json({ error: 'userPrompt exceeds maximum length of 2000 characters' });
+    }
+
+    const safeLanguageCode = String(languageCode).replace(/[^a-zA-Z-]/g, '').slice(0, 10) || 'en';
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      const fallbackReply = getSimulatedFallback(userPrompt, safeLanguageCode);
+      return res.json({
+        reply: fallbackReply,
+        model: 'simulated-local',
+        notice: 'DEMO_MODE: GEMINI_API_KEY not configured on server. Showing dynamic venue assistant response.'
+      });
     }
 
     const requestBody = {
       system_instruction: {
-        parts: [{ text: `${systemPrompt || ''}\nReply in language code: ${languageCode}.` }]
+        parts: [{ text: `${systemPrompt || ''}\nReply in language code: ${safeLanguageCode}.` }]
       },
       generationConfig: {
         temperature: 0.3,
         topP: 0.9,
         maxOutputTokens: 700
       },
-      contents: [{ role: 'user', parts: [{ text: userPrompt }] }]
+      contents: [{ role: 'user', parts: [{ text: userPrompt.trim() }] }]
     };
 
     const candidateModels = [
-      GEMINI_MODEL,
-      'gemini-2.5-flash',
-      'gemini-flash-latest',
-      'gemini-2.0-flash'
+      ...new Set([
+        GEMINI_MODEL,
+        'gemini-2.5-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash'
+      ])
     ];
 
     let lastError = 'Gemini request failed';
     for (const model of candidateModels) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
       const upstream = await fetch(endpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
         body: JSON.stringify(requestBody)
       });
 
@@ -72,13 +115,24 @@ app.post('/api/gemini', async (req, res) => {
   }
 });
 
+// JSON 404 for unhandled API routes
+app.use('/api', (_req, res) => {
+  res.status(404).json({ error: 'API route not found' });
+});
+
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(distDir));
-  app.get('*', (_req, res) => {
+  app.get('*', (req, res) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 }
 
-app.listen(PORT, () => {
-  console.log(`StadiumAI server running at http://localhost:${PORT}`);
-});
+let server;
+if (process.env.NODE_ENV !== 'test') {
+  server = app.listen(PORT, () => {
+    console.log(`StadiumAI server running at http://localhost:${PORT}`);
+  });
+}
+
+export { app, server };
+export default app;
