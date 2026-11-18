@@ -338,22 +338,28 @@ export default function App() {
             </section>
 
             <div className="desktop-two-col">
-              {/* Left Column: Live Interactive Density Map */}
-              <article className="card map-card">
-                <div className="title-row">
-                  <h2>{t.densityMap || 'Live Crowd Density Map'}</h2>
-                  <span className="live-text">Real-Time Sensor Feed</span>
-                </div>
-                <HeatmapCanvas densityData={scenario.density} activeRoute={routeResult} />
-                <div className="legend">
-                  <span><i className="low" /> Low (&lt;40%)</span>
-                  <span><i className="med" /> Medium (40-70%)</span>
-                  <span><i className="high" /> High (&gt;70%)</span>
-                  <span><i className="gate" /> Turnstiles</span>
-                </div>
-              </article>
+              {/* Left Column: Live Interactive Density Map + Atmosphere */}
+              <div>
+                <article className="card map-card">
+                  <div className="title-row">
+                    <h2>{t.densityMap || 'Live Crowd Density Map'}</h2>
+                    <span className="live-text">Real-Time Sensor Feed</span>
+                  </div>
+                  <HeatmapCanvas densityData={scenario.density} activeRoute={routeResult} />
+                  <div className="legend">
+                    <span><i className="low" /> Low (&lt;40%)</span>
+                    <span><i className="med" /> Medium (40-70%)</span>
+                    <span><i className="high" /> High (&gt;70%)</span>
+                    <span><i className="gate" /> Turnstiles</span>
+                  </div>
+                </article>
 
-              {/* Right Column: Venue Occupancy + Queues + Alerts */}
+                <div className="mt-3">
+                  <AtmosphereCard />
+                </div>
+              </div>
+
+              {/* Right Column: Venue Occupancy + Safety Alerts + Concourse Queues + Transit */}
               <div>
                 <article className="card occupancy-card">
                   <h2>{t.occupancy || 'Venue Occupancy & Stand Flow'}</h2>
@@ -380,22 +386,6 @@ export default function App() {
 
                 <article className="card mt-3">
                   <AccordionItem
-                    title={t.queueTimes || 'Real-Time Concourse Queues'}
-                    data={scenario.queues}
-                    renderItem={(q) => (
-                      <div className="queue-row" key={q.name}>
-                        <span className="queue-name">{q.name}</span>
-                        <div className="bar">
-                          <div className={`fill ${q.level}`} style={{ width: `${Math.min(100, q.wait * 5)}%` }} />
-                        </div>
-                        <strong>{q.wait}m</strong>
-                      </div>
-                    )}
-                  />
-                </article>
-
-                <article className="card mt-3">
-                  <AccordionItem
                     title={`${t.alerts || 'Active Safety Alerts'} (${alerts.length})`}
                     data={alerts}
                     renderItem={(a) => (
@@ -413,13 +403,27 @@ export default function App() {
                     )}
                   />
                 </article>
-              </div>
-            </div>
 
-            {/* Additional Command Center Cards: Atmosphere & Transit */}
-            <div className="desktop-two-col mt-3">
-              <AtmosphereCard />
-              <ParkingTransitCard />
+                <article className="card mt-3">
+                  <AccordionItem
+                    title={t.queueTimes || 'Real-Time Concourse Queues'}
+                    data={scenario.queues}
+                    renderItem={(q) => (
+                      <div className="queue-row" key={q.name}>
+                        <span className="queue-name">{q.name}</span>
+                        <div className="bar">
+                          <div className={`fill ${q.level}`} style={{ width: `${Math.min(100, q.wait * 5)}%` }} />
+                        </div>
+                        <strong>{q.wait}m</strong>
+                      </div>
+                    )}
+                  />
+                </article>
+
+                <div className="mt-3">
+                  <ParkingTransitCard />
+                </div>
+              </div>
             </div>
           </div>
         )}
