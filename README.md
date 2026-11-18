@@ -21,31 +21,40 @@ The application is structured as a client-server architecture. The frontend is a
 flowchart TD
     subgraph Client [Mobile Web Client - React]
         UI[User Interface Shell]
+        EB[React Error Boundary]
         Heatmap[Heatmap Canvas Component]
         Router[Smart Route Planner]
         Assistant[Multilingual Assistant Panel]
         I18n[i18n Translation Engine]
+        ClientLib[Gemini Client Library with Timeout]
     end
 
     subgraph Server [Backend Gateway - Express]
+        SecurityHeaders[Security Headers Middleware]
+        RateLimiter[Sliding Window Rate Limiter]
         HealthEP["/api/health Endpoint"]
         GeminiEP["/api/gemini Proxy"]
         Validator[Input Validation & Sanitization]
         FallbackEngine[Simulated Fallback Engine]
         StaticServer[Production Static File Server]
+        ShutdownMgr[Graceful Shutdown Handler]
     end
 
     subgraph External [External Services]
         GeminiAPI[Google Gemini API]
     end
 
-    UI --> Heatmap
-    UI --> Router
-    UI --> Assistant
+    UI --> EB
+    EB --> Heatmap
+    EB --> Router
+    EB --> Assistant
     Assistant --> I18n
-    Assistant -->|HTTP POST| GeminiEP
+    Assistant --> ClientLib
+    ClientLib -->|HTTP POST with Signal| GeminiEP
     UI -->|HTTP GET| HealthEP
 
+    SecurityHeaders --> RateLimiter
+    RateLimiter --> GeminiEP
     GeminiEP --> Validator
     Validator --> FallbackEngine
     Validator -->|x-goog-api-key| GeminiAPI
@@ -58,44 +67,56 @@ flowchart TD
 - Dynamic Route Optimization: Intelligent path calculation connecting concourses, escalators, and breezeways to minimize travel time and avoid congested bottlenecks.
 - Multilingual Assistant: AI venue concierge with Indian language script detection (Hindi, Bengali, Tamil, Telugu, Kannada, Malayalam, Marathi, Gujarati, Punjabi, Odia, Assamese) as well as Spanish and English.
 - Secure API Gateway: Server-side proxy isolating Gemini credentials, enforcing request size validation, and authenticating upstream via HTTP headers.
+- Rate Limiting and Security Headers: Enforces sliding window rate limits (30 requests/min per IP) and emits standard security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy).
+- Resilient Error Boundary: React class component containing render failures to prevent complete mobile interface whiteouts.
 - Offline Fallback Engine: Deterministic local venue assistance when upstream AI credentials are not configured, ensuring operational continuity.
-- Responsive Mobile-First Interface: Bottom navigation, accessible controls, accordion panels, and high-contrast status pills for arena environments.
+- Mobile-First Interface: Bottom navigation, accessible controls, accordion panels, and high-contrast status pills for arena environments.
+- Optimized Code Splitting: Rollup manual chunks isolating React and React-DOM vendor dependencies for optimal mobile client caching.
 
 ## Technology Stack
 
 - Frontend: React 18, Vite 5, Pure CSS3 with mobile layout constraints
 - Backend: Node.js, Express 4, dotenv
 - Testing: Vitest 2, Supertest 7
+- CI/CD: GitHub Actions (Node 18 and 20 matrix)
+- Containerization: Docker multi-stage Alpine build
 - AI Integration: Google Generative AI (Gemini 2.5 Flash / Gemini 2.0 Flash)
 
 ## Project Structure
 
 ```
 stadium-ai/
-├── dist/                    # Production build output
+├── .github/
+│   └── workflows/
+│       └── ci.yml             # GitHub Actions CI workflow
+├── dist/                      # Production build output
 ├── public/
-│   └── lang/                # Internationalization JSON dictionaries (13 languages)
+│   └── lang/                  # Internationalization JSON dictionaries (13 languages)
 ├── src/
 │   ├── components/
 │   │   ├── AssistantPanel.jsx # AI chat interface with language detection
+│   │   ├── ErrorBoundary.jsx  # React application error boundary
 │   │   └── HeatmapCanvas.jsx  # SVG stadium blueprint and heatmap overlay
 │   ├── lib/
-│   │   ├── gemini.js        # Client API caller for /api/gemini
-│   │   └── i18n.js          # Translation loader and fallback dictionaries
+│   │   ├── gemini.js          # Client API caller with AbortController timeout
+│   │   └── i18n.js            # Translation loader and fallback dictionaries
 │   ├── styles/
-│   │   └── global.css       # Mobile shell styling and design system tokens
-│   ├── App.jsx              # Main dashboard application shell and router
-│   └── main.jsx             # React DOM entry point
+│   │   └── global.css         # Mobile shell styling and design system tokens
+│   ├── App.jsx                # Main dashboard application shell and router
+│   └── main.jsx               # React DOM entry point
 ├── tests/
-│   ├── i18n.test.js         # Translation integrity and language coverage tests
-│   ├── routing.test.js      # Route planner algorithm and script detection tests
-│   └── server.test.js       # Express endpoint validation and health tests
-├── .env.example             # Template for environment configuration
-├── .gitignore               # Ignored paths for git
-├── index.html               # Single page application HTML entry
-├── package.json             # Package scripts and dependencies
-├── server.js                # Express backend server and API proxy
-└── vite.config.js           # Vite build and dev server proxy configuration
+│   ├── gemini.test.js         # API client timeout and error handling tests
+│   ├── i18n.test.js           # Translation integrity and language coverage tests
+│   ├── routing.test.js        # Route planner algorithm and script detection tests
+│   └── server.test.js         # Express endpoint validation, security and health tests
+├── .dockerignore              # Docker ignore rules
+├── .env.example               # Template for environment configuration
+├── .gitignore                 # Ignored paths for git
+├── Dockerfile                 # Multi-stage production container build
+├── index.html                 # Single page application HTML entry
+├── package.json               # Package scripts and dependencies
+├── server.js                  # Express backend server and API proxy
+└── vite.config.js             # Vite build and dev server proxy configuration
 ```
 
 ## Prerequisites
@@ -204,9 +225,10 @@ Response:
 }
 ```
 
-Validation Rules:
+Validation & Security Rules:
 - `userPrompt`: Required non-empty string, maximum 2,000 characters.
 - `languageCode`: Alphanumeric/hyphen string, maximum 10 characters.
+- Rate Limit: Maximum 30 requests per minute per IP address. Exceeded requests receive HTTP 429 with `Retry-After` header.
 - When `GEMINI_API_KEY` is omitted, the response provides deterministic fallback advice with `"model": "simulated-local"`.
 
 ## Testing
@@ -218,34 +240,26 @@ npm test
 ```
 
 The test suite validates:
-- Express API status, validation errors, and health endpoints.
+- Express API status, validation errors, security headers, rate limiting, and health endpoints.
 - Internationalization dictionary availability and schema across all 13 languages.
 - Smart route planning algorithms for all stadium stands.
 - Script detection heuristics across Indic and Latin character sets.
+- Client API timeout handling and abort signals.
 
 ## Deployment
 
-### Containerization
+### Containerization (Docker)
 
-To run in a containerized environment (Docker, Cloud Run, Kubernetes), package the built artifacts:
+Build the container image:
 
-```dockerfile
-FROM node:20-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
+```sh
+docker build -t stadium-ai .
+```
 
-FROM node:20-alpine
-WORKDIR /app
-ENV NODE_ENV=production
-COPY package*.json ./
-RUN npm ci --omit=dev
-COPY --from=build /app/dist ./dist
-COPY server.js ./
-EXPOSE 8791
-CMD ["node", "server.js"]
+Run the container:
+
+```sh
+docker run -p 8791:8791 --env-file .env stadium-ai
 ```
 
 ### Google Cloud Run
