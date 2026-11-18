@@ -170,6 +170,17 @@ if (process.env.NODE_ENV !== 'test') {
   server = app.listen(PORT, () => {
     console.log(`StadiumAI server running at http://localhost:${PORT}`);
   });
+
+  const shutdown = (signal) => {
+    console.log(`Received ${signal}. Shutting down StadiumAI server gracefully...`);
+    server.close(() => {
+      console.log('StadiumAI server closed.');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 export { app, server };
