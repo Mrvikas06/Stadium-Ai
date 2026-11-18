@@ -14,6 +14,44 @@ const distDir = path.join(__dirname, 'dist');
 
 app.use(express.json({ limit: '1mb' }));
 
+// Security headers middleware
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// In-memory rate limiter for API endpoints
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const MAX_REQUESTS_PER_WINDOW = 30;
+
+export function rateLimiter(req, res, next) {
+  if (process.env.NODE_ENV === 'test' && !req.headers['x-test-ratelimit']) {
+    return next();
+  }
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const clientData = rateLimitMap.get(ip) || { count: 0, resetTime: now + RATE_LIMIT_WINDOW_MS };
+
+  if (now > clientData.resetTime) {
+    clientData.count = 1;
+    clientData.resetTime = now + RATE_LIMIT_WINDOW_MS;
+  } else {
+    clientData.count += 1;
+  }
+
+  rateLimitMap.set(ip, clientData);
+
+  if (clientData.count > MAX_REQUESTS_PER_WINDOW) {
+    res.setHeader('Retry-After', String(Math.ceil((clientData.resetTime - now) / 1000)));
+    return res.status(429).json({ error: 'Too many requests. Please try again shortly.' });
+  }
+
+  next();
+}
+
 // Health and readiness check endpoint
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -41,7 +79,7 @@ function getSimulatedFallback(prompt, languageCode = 'en') {
   return `Stadium operations active: Recommended Gate 4 for rapid exit, Food Court B for fast dining. All safety lanes remain clear. (Language: ${languageCode})`;
 }
 
-app.post('/api/gemini', async (req, res) => {
+app.post('/api/gemini', rateLimiter, async (req, res) => {
   try {
     const { userPrompt, systemPrompt, languageCode = 'en' } = req.body || {};
     if (!userPrompt || typeof userPrompt !== 'string' || !userPrompt.trim()) {
