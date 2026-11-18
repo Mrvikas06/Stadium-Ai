@@ -73,7 +73,7 @@ function AccordionItem({ title, data, renderItem }) {
   );
 }
 
-function calculateSmartRoute(fromLocation, targetSeat) {
+export function calculateSmartRoute(fromLocation, targetSeat) {
   const seatUpper = (targetSeat || '').toUpperCase().trim();
   let stand = 'North';
   if (seatUpper.includes('SOUTH') || seatUpper.startsWith('S')) stand = 'South';

@@ -8,7 +8,7 @@ const quickPrompts = [
   'Best low-crowd route to North Stand?'
 ];
 
-function detectInputLanguage(text, fallback = 'en') {
+export function detectInputLanguage(text, fallback = 'en') {
   const value = (text || '').trim().toLowerCase();
   if (!value) return fallback;
 
@@ -23,7 +23,8 @@ function detectInputLanguage(text, fallback = 'en') {
 
   // Bengali/Assamese script share block
   if (/[\u0980-\u09FF]/.test(value)) {
-    if (/(মই|আজি|ধন্যবাদ|কেনেকৈ|গেট|ভিৰ)/i.test(value)) return 'as';
+    // Unique Assamese characters ৰ (\u09F0), ৱ (\u09F1) or distinct vocabulary
+    if (/[\u09F0\u09F1]/.test(value) || /(মই|কেনেকৈ|কেনেদৰে|ভিৰ)/i.test(value)) return 'as';
     return 'bn';
   }
 
