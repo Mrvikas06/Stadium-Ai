@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import HeatmapCanvas from './components/HeatmapCanvas';
 import AssistantPanel from './components/AssistantPanel';
+import AtmosphereCard from './components/AtmosphereCard';
+import ConcessionsCard from './components/ConcessionsCard';
+import ParkingTransitCard from './components/ParkingTransitCard';
 import { defaultTranslations, loadTranslations } from './lib/i18n';
 
 const LANGUAGE_OPTIONS = [
@@ -412,6 +415,12 @@ export default function App() {
                 </article>
               </div>
             </div>
+
+            {/* Additional Command Center Cards: Atmosphere & Transit */}
+            <div className="desktop-two-col mt-3">
+              <AtmosphereCard />
+              <ParkingTransitCard />
+            </div>
           </div>
         )}
 
@@ -492,21 +501,9 @@ export default function App() {
                   <HeatmapCanvas densityData={scenario.density} activeRoute={routeResult} />
                 </article>
 
-                <article className="card mt-3">
-                  <AccordionItem
-                    title={t.queueTimes || 'Turnstile & Concession Times'}
-                    data={scenario.queues}
-                    renderItem={(q) => (
-                      <div className="queue-row" key={q.name}>
-                        <span className="queue-name">{q.name}</span>
-                        <div className="bar">
-                          <div className={`fill ${q.level}`} style={{ width: `${Math.min(100, q.wait * 5)}%` }} />
-                        </div>
-                        <strong>{q.wait}m</strong>
-                      </div>
-                    )}
-                  />
-                </article>
+                <div className="mt-3">
+                  <ConcessionsCard />
+                </div>
               </div>
             </div>
           </div>
